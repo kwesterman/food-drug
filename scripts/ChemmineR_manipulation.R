@@ -1,15 +1,14 @@
-#Use ChemmineR package to develop atom pair sets for a combined set of drug 
-#compounds and FooDB food compounds and develop a set of all food compounds
-#with Tanimoto similarity score >0.85 with respect to one of the drugs
+#Use ChemmineR package to develop atom pair sets for two sets of food compounds and 
+#develop a set of all food compounds with Tanimoto similarity score >0.85
 
-#Read in combination SDF set for 272 drugs followed by all FooDB compounds
+library(ChemmineR, parallel)
+
+#Read in data
 combo_sdfset <- read.SDFset('~/DirectedStudy/Objective3/SDF_retrieval/combo_SDF.txt')
-#Read in list of drugs, Chembl IDs, SMILES structures, and gene targets
-drug_info <- read.table("~/DirectedStudy/Objective3/chembl_20_mysql/Drug_info.txt", sep="\t", header=T, comment.char="")
-#Read in list of food compound info and change formatting
-food_info <- read.table("~/DirectedStudy/Objective3/foodb_mysql/foodcmpds_info.txt", sep='\t', header=T, quote="")
-colnames(food_info) <- c("Foodcmpd_name", "FooDB_ID", "Cmpd_smiles")
-food_info$index <- row.names(food_info)
+list_A <- read.table("~/DirectedStudy/Objective3/setA_info.txt", sep="\t", header=T, comment.char="")
+list_B <- read.table("~/DirectedStudy/Objective3/setB_info.txt", sep='\t', header=T, quote="")
+colnames(list_B) <- c("B_name", "dbB_ID", "B_structure")
+list_B$index <- row.names(list_B) #Create index for list B
 
 #Remove invalid SDFs from food compounds list
 valid <- validSDF(combo_sdfset)
@@ -17,29 +16,37 @@ combo_sdfset <- combo_sdfset[valid]
 
 #Create AP set for combo set
 combo_apset <- sdf2ap(combo_sdfset)
-failedAPs <- which(sapply(as(combo_apset, "list"), length)==1)
 
-#Perform similarity search and append "drug of origin" info to each result
-similarity <- data.frame()
-for (i in 1:nrow(drug_info)) {
-  search <- cmp.search(combo_apset, combo_apset[i], cutoff=0.85, type=3, quiet=T)
-  search$Origin_drug <- drug_info$Drug_name[i]
-  search$CHEMBL_ID <- drug_info$Chembl_ID[i]
-  search$Gene_target <- drug_info$Gene[i]
-  similarity <- rbind(similarity, search)
+#Function to take in a cutoff value, write a file containing similar cmpds, and return the resulting datasets 
+similarity_search <- function (T_cutoff) {
+  similarity <- data.frame()
+  for (i in 1:nrow(list_A)) { #Loop through list A cmpds looking for list B cmpds above cutoff
+    search <- cmp.search(combo_apset, combo_apset[i], cutoff=T_cutoff, type=3, quiet=T)
+    search$Origin_cmpd <- list_A$A_name[i]
+    search$dbA_ID <- list_A$dbA_ID[i]
+    search$Gene_target <- list_A$Gene[i]
+    similarity <- rbind(similarity, search) #Append "origin compound" info to each result
+  }
+  
+  similarity <- subset(similarity, similarity$index > nrow(list_A), select=-cid) #Remove "self-hits" (a.k.a. CMP1-CMP272)
+  similarity$index <- similarity$index - nrow(list_A) #Reset indices so they correspond to the list_A data frame
+  colnames(similarity)[2] <- "Tanimoto_score"
+  
+  results <- merge(similarity, list_B, by="index") #Merge similarity and list_B tables to associate results with compound names
+  results <- results[order(results$Origin_cmpd),c(1,3:5,2,6:8)] #Rearrangement
+  results <- results[results$Origin_cmpd!=toupper(results$B_name),] #Remove more "self-hits"
+  
+  write.table(results[,-1], paste0('~/DirectedStudy/Objective3/ChemmineR/Results_', Tan_cutoff, '.txt'), col.names=T, row.names=F, sep="\t", quote=F)
+  
+  return(results)
 }
 
-#Trim results to remove any results that are drugs (a.k.a. CMP1-CMP272), and reset indices so they correspond to the food_info data frame
-similarity <- subset(similarity, similarity$index > nrow(drug_info), select=-cid)
-similarity$index <- similarity$index - nrow(drug_info)
-colnames(similarity)[2] <- "Tanimoto_score"
-
-#Merge similarity results with food info to match results with compound names
-results <- merge(similarity, food_info, by="index")
-results <- results[order(results$Origin_drug),c(1,3:5,2,6:8)]
-
-#Write final table
-write.table(results[,-1], "~/DirectedStudy/Objective3/ChemmineR/Results.txt", col.names=T, row.names=F, sep="\t", quote=F)
+#Create a list of Tanimoto cutoffs and send them through the similarity function
+cutoff_list <- list(0.65, 0.75, 0.85, 0.95)
+results_tables <- mclapply(cutoff_list, similarity_search) #Parallelizes lapply
+names(results_tables) <- cutoff_list
 
 #Diagnostics
-self_return <- results[as.character(results$Origin_drug)==toupper(as.character(results$Foodcmpd_name)),]
+results_65 <- results_tables[[1]]; results_65$Foodcmpd_name <- as.character(results_65$B_name); table(results65$B_name) #Freq. table of food cmpds
+num_failedSDFs <- length(valid) - length(combo_sdfset)
+failedAPs <- which(sapply(as(combo_apset, "list"), length)==1)
