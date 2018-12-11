@@ -1,0 +1,18 @@
+#Finds all foods in FooDB containing a compound of interest
+
+use foodb;
+
+#Search based on compound ID:
+SELECT c.name AS foodcmpd_name,
+    cf.compound_id AS foodcmpd_id,
+    f.name AS food_name,
+    f.id AS food_id,
+    f.food_group AS food_group,
+    f.food_subgroup AS food_subgroup,
+    cf.orig_food_common_name AS alt_food_name
+FROM compounds_foods cf
+    INNER JOIN compounds c ON cf.compound_id = c.id
+    INNER JOIN foods f ON cf.food_id = f.id
+WHERE comound_id IN (TG_compounds.foodb_id)
+GROUP BY foodcmpd_name, foodcmpd_id, food_name, food_id
+ORDER BY food_subgroup, food_id, compound_id, food_name;

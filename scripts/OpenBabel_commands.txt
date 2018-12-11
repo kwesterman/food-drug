@@ -1,0 +1,10 @@
+#Terminal input to run OpenBabel
+
+#Format:
+# <path to babel> -i[input type] '<path to input file>' -o[output type] '<path to output file>'
+
+#Drugs:
+babel  -ismi   '/Users/kennywesterman/DirectedStudy/Objective3/chembl_20_mysql/Drug_SMILES.txt'  -osdf   '/Users/kennywesterman/DirectedStudy/Objective3/SDF_retrieval/drugs_SDF.txt'
+
+#Food compounds:
+babel  -ismi   '/Users/kennywesterman/DirectedStudy/Objective3/foodb_mysql/foodcmpds_smiles.txt'  -osdf   '/Users/kennywesterman/DirectedStudy/Objective3/SDF_retrieval/foodcmpds_SDF.txt'

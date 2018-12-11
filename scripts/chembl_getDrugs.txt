@@ -1,0 +1,19 @@
+#Query Chembl database for all drugs targeting genes w/ gene symbols
+#in the table TG_genelist
+
+use chembl_20
+
+SELECT cs.component_synonym AS gene_symbol, 
+    td.chembl_id AS gene_chemblID,
+    md.pref_name AS drug_name,
+    md.chembl_id AS drug_chemblID,
+    struct.standard_inchi_key AS drug_inchikey
+FROM molecule_dictionary md,
+    INNER JOIN compound_structures struct ON md.molregno = struct.molregno
+    INNER JOIN compound_records cr ON md.molregno = cr.molregno
+    INNER JOIN activities act ON cr.record_id = act.record_id
+    INNER JOIN assays a ON act.assay_id = a.assay_id
+    INNER JOIN target_dictionary td ON a.tid = td.tid
+    INNER JOIN target components tc ON td.tid = tc.tid
+    INNER JOIN component_synonyms cs ON tc.component_id = cs.component_id
+WHERE cs.component_synonym IN (TG_genelist.gene_symbol);

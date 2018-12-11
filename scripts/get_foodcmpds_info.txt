@@ -1,0 +1,13 @@
+#Query foodb database to get smiles structures, FooDB IDs, and names for all compounds in the database
+
+use foodb;
+
+select name, id, moldb_smiles
+from compounds
+where moldb_smiles is not null;
+
+#Command: mysql < get_foodcmpds_info.txt > foodcmpds_info.txt
+
+
+
+#'-N' is alias for --skip-column-names option (in output) if needed

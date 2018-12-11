@@ -1,0 +1,13 @@
+#Query foodb database to get SMILES for all compounds in the database
+
+use foodb;
+
+select moldb_smiles
+from compounds
+where moldb_smiles is not null;
+
+#Command: mysql < get_foodcmpds.txt > ../SDF_retrieval/foodcmpds_smiles.txt
+
+
+
+#'-N' is alias for --skip-column-names option if needed
